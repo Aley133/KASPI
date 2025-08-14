@@ -3,35 +3,37 @@ on:
   push:
     branches: [ main ]
     paths: [ 'backend/**', 'fly.backend.toml', '.github/workflows/deploy-backend.yml' ]
-  workflow_dispatch: {}   # ← эта строка позволяет запускать вручную
+  workflow_dispatch: {}
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      FLY_ORG: personal   # если у тебя личный аккаунт. Если есть команда — поставь её slug (в Fly → Teams видно)
+
     steps:
       - uses: actions/checkout@v4
       - uses: superfly/flyctl-actions/setup-flyctl@v1
 
-      # 1) Диагностика: есть ли токен
       - name: Check FLY token
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
-          echo -n "FLY_API_TOKEN length: "
-          echo -n "$FLY_API_TOKEN" | wc -c
-          if [ -z "$FLY_API_TOKEN" ]; then
-            echo "❌ FLY_API_TOKEN is missing (Settings → Secrets → Actions)"; exit 1;
-          fi
+          test -n "$FLY_API_TOKEN" || (echo "❌ FLY_API_TOKEN missing"; exit 1)
           flyctl version
 
-      # 2) Диагностика: есть ли нужные файлы в корне
-      - name: Check files
+      - name: Ensure app exists
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
-          pwd; ls -la
-          test -f fly.backend.toml && echo "✅ fly.backend.toml OK" || (echo "❌ fly.backend.toml missing"; exit 1)
-          test -f backend/Dockerfile && echo "✅ backend/Dockerfile OK" || (echo "❌ backend/Dockerfile missing"; exit 1)
+          APP=$(awk -F\" '/^app =/{print $2}' fly.backend.toml)
+          echo "Target app: $APP (org: $FLY_ORG)"
+          if flyctl apps show "$APP" >/dev/null 2>&1; then
+            echo "✅ App $APP already exists"
+          else
+            flyctl apps create "$APP" --org "$FLY_ORG"
+          fi
 
-      # 3) Деплой
       - name: Deploy API
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
