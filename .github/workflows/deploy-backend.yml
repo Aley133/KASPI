@@ -3,6 +3,7 @@ on:
   push:
     branches: [ main ]
     paths: [ 'backend/**', 'fly.backend.toml', '.github/workflows/deploy-backend.yml' ]
+  workflow_dispatch: {}   # ← эта строка позволяет запускать вручную
 
 jobs:
   deploy:
