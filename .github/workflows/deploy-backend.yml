@@ -9,7 +9,9 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     env:
-      FLY_ORG: personal    # если есть команда — поставь её slug вместо personal
+      FLY_ORG: personal                 # если у тебя личный аккаунт; иначе укажи slug своей команды
+      APP_NAME: kaspi-dmp-backend       # ИМЯ ДОЛЖНО СОВПАДАТЬ с app = "... " в fly.backend.toml
+
     steps:
       - uses: actions/checkout@v4
       - uses: superfly/flyctl-actions/setup-flyctl@v1
@@ -23,18 +25,16 @@ jobs:
           flyctl orgs list
           flyctl apps list || true
 
-      - name: Ensure app exists
+      - name: Ensure app exists (explicit name)
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
           set -euxo pipefail
-          APP=$(awk -F\" '/^app =/{print $2}' fly.backend.toml)
-          ORG="${FLY_ORG:-personal}"
-          echo "Target app: $APP (org: $ORG)"
-          if flyctl apps show "$APP" >/dev/null 2>&1; then
-            echo "✅ App $APP already exists"
+          echo "Target app: $APP_NAME (org: $FLY_ORG)"
+          if flyctl apps show "$APP_NAME" >/dev/null 2>&1; then
+            echo "✅ App $APP_NAME already exists"
           else
-            flyctl apps create "$APP" --org "$ORG"
+            flyctl apps create "$APP_NAME" --org "$FLY_ORG"
           fi
 
       - name: Deploy API
